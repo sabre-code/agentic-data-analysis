@@ -1,11 +1,13 @@
 """
-File upload routes (simplified without session management).
+File upload and download routes.
 """
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, UploadFile, status
+from fastapi.responses import FileResponse
 
 from app.config import get_settings
 from app.models.schemas import UploadResponse
@@ -68,4 +70,64 @@ async def upload_file(file: UploadFile) -> UploadResponse:
         row_count=uploaded_file.row_count,
         columns=uploaded_file.columns,
         preview=preview,
+    )
+
+
+@router.get("/reports/{filename}")
+async def download_report(filename: str) -> FileResponse:
+    """
+    Download a generated PDF or PPTX report.
+    
+    Args:
+        filename: The report filename (e.g., "Sales_Analysis_abc123.pdf")
+        
+    Returns:
+        FileResponse with appropriate MIME type and content-disposition headers
+    """
+    settings = get_settings()
+    reports_dir = Path(settings.REPORTS_DIR)
+    
+    # Security: Prevent path traversal attacks
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid filename"
+        )
+    
+    file_path = reports_dir / filename
+    
+    # Check if file exists
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Report file not found"
+        )
+    
+    # Determine MIME type based on extension
+    mime_types = {
+        ".pdf": "application/pdf",
+        ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    }
+    
+    file_extension = file_path.suffix.lower()
+    media_type = mime_types.get(file_extension, "application/octet-stream")
+    
+    # Generate friendly display name (remove ULID from filename)
+    # e.g., "Sales_Analysis_01H2X3Y4Z5.pdf" -> "Sales Analysis.pdf"
+    display_name = filename
+    if "_" in filename:
+        parts = filename.rsplit("_", 1)
+        if len(parts) == 2 and len(parts[1]) > 20:  # ULID is 26 chars + extension
+            # Remove ULID, keep original name
+            display_name = parts[0].replace("_", " ") + file_extension
+    
+    logger.info("Serving report file: %s (display: %s)", filename, display_name)
+    
+    return FileResponse(
+        path=str(file_path),
+        media_type=media_type,
+        filename=display_name,
+        headers={
+            "Content-Disposition": f'attachment; filename="{display_name}"'
+        }
     )

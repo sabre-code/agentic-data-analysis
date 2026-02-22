@@ -54,6 +54,7 @@ SSEChunkType = Literal[
     "text",           # Markdown text streamed token by token
     "code",           # Code block (syntax highlighted)
     "chart_plotly",   # Plotly JSON spec string → rendered as interactive chart
+    "report_files",   # JSON array of report file metadata for download
     "error",          # Error message
     "done",           # Stream complete signal
 ]
