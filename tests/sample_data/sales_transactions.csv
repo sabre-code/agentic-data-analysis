@@ -1,0 +1,41 @@
+order_id,order_date,product_name,category,region,sales_rep,quantity,unit_price,discount_pct,total_revenue,customer_id
+ORD-001,2025-01-03,Wireless Keyboard,Electronics,North,Alice Chen,2,79.99,0.05,151.98,CUST-042
+ORD-002,2025-01-05,Office Chair,Furniture,South,Bob Martinez,1,349.00,0.10,314.10,CUST-107
+ORD-003,2025-01-07,Standing Desk,Furniture,East,Carol White,1,599.00,0.00,599.00,CUST-083
+ORD-004,2025-01-09,USB-C Hub,Electronics,West,David Kim,3,45.50,0.00,136.50,CUST-021
+ORD-005,2025-01-12,Noise Cancelling Headphones,Electronics,North,Alice Chen,1,249.99,0.15,212.49,CUST-056
+ORD-006,2025-01-15,Ergonomic Mouse,Electronics,South,Bob Martinez,2,59.99,0.05,113.98,CUST-091
+ORD-007,2025-01-18,Bookshelf,Furniture,East,Eve Johnson,1,189.00,0.00,189.00,CUST-034
+ORD-008,2025-01-20,Webcam 4K,Electronics,West,Frank Lee,2,129.99,0.10,233.98,CUST-012
+ORD-009,2025-01-22,Desk Lamp,Office Supplies,North,Alice Chen,3,39.99,0.00,119.97,CUST-077
+ORD-010,2025-01-25,Monitor 27inch,Electronics,South,Bob Martinez,1,429.00,0.05,407.55,CUST-105
+ORD-011,2025-02-01,Wireless Keyboard,Electronics,East,Carol White,4,79.99,0.10,287.96,CUST-063
+ORD-012,2025-02-04,File Cabinet,Furniture,West,Frank Lee,1,219.00,0.00,219.00,CUST-048
+ORD-013,2025-02-06,Laptop Stand,Electronics,North,Alice Chen,2,89.99,0.05,170.98,CUST-029
+ORD-014,2025-02-10,Whiteboard,Office Supplies,South,Bob Martinez,1,79.00,0.00,79.00,CUST-116
+ORD-015,2025-02-13,USB-C Hub,Electronics,East,Carol White,5,45.50,0.10,204.75,CUST-007
+ORD-016,2025-02-17,Office Chair,Furniture,West,David Kim,2,349.00,0.15,593.30,CUST-088
+ORD-017,2025-02-19,Mechanical Keyboard,Electronics,North,Eve Johnson,1,159.99,0.00,159.99,CUST-072
+ORD-018,2025-02-22,Desk Organizer,Office Supplies,South,Bob Martinez,6,24.99,0.00,149.94,CUST-033
+ORD-019,2025-02-25,Standing Desk,Furniture,East,Carol White,1,599.00,0.10,539.10,CUST-094
+ORD-020,2025-02-27,Webcam 4K,Electronics,West,Frank Lee,3,129.99,0.05,370.47,CUST-061
+ORD-021,2025-03-03,Monitor 27inch,Electronics,North,Alice Chen,2,429.00,0.00,858.00,CUST-019
+ORD-022,2025-03-06,Noise Cancelling Headphones,Electronics,South,David Kim,2,249.99,0.10,449.98,CUST-140
+ORD-023,2025-03-09,Bookshelf,Furniture,East,Eve Johnson,2,189.00,0.05,359.10,CUST-055
+ORD-024,2025-03-12,Laptop Stand,Electronics,West,Frank Lee,4,89.99,0.10,323.96,CUST-038
+ORD-025,2025-03-15,Desk Lamp,Office Supplies,North,Alice Chen,5,39.99,0.00,199.95,CUST-081
+ORD-026,2025-03-18,Ergonomic Mouse,Electronics,South,Bob Martinez,3,59.99,0.05,170.97,CUST-113
+ORD-027,2025-03-21,File Cabinet,Furniture,East,Carol White,1,219.00,0.00,219.00,CUST-025
+ORD-028,2025-03-24,Mechanical Keyboard,Electronics,West,David Kim,2,159.99,0.05,303.98,CUST-069
+ORD-029,2025-03-27,Whiteboard,Office Supplies,North,Eve Johnson,3,79.00,0.10,213.30,CUST-097
+ORD-030,2025-03-31,USB-C Hub,Electronics,South,Bob Martinez,6,45.50,0.10,245.70,CUST-044
+ORD-031,2025-04-02,Standing Desk,Furniture,East,Carol White,2,599.00,0.00,1198.00,CUST-130
+ORD-032,2025-04-05,Monitor 27inch,Electronics,West,Frank Lee,1,429.00,0.05,407.55,CUST-016
+ORD-033,2025-04-08,Wireless Keyboard,Electronics,North,Alice Chen,3,79.99,0.00,239.97,CUST-074
+ORD-034,2025-04-11,Office Chair,Furniture,South,David Kim,3,349.00,0.10,942.30,CUST-109
+ORD-035,2025-04-14,Desk Organizer,Office Supplies,East,Eve Johnson,10,24.99,0.05,237.41,CUST-052
+ORD-036,2025-04-17,Laptop Stand,Electronics,West,Frank Lee,3,89.99,0.00,269.97,CUST-031
+ORD-037,2025-04-20,Noise Cancelling Headphones,Electronics,North,Alice Chen,1,249.99,0.05,237.49,CUST-086
+ORD-038,2025-04-23,Webcam 4K,Electronics,South,Bob Martinez,2,129.99,0.10,233.98,CUST-123
+ORD-039,2025-04-26,Bookshelf,Furniture,East,Carol White,3,189.00,0.05,538.65,CUST-066
+ORD-040,2025-04-30,USB-C Hub,Electronics,West,David Kim,4,45.50,0.00,182.00,CUST-009
