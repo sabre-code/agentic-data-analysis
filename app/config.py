@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     # ── File storage ─────────────────────────────────────────────────────────
     DATA_DIR: str = "./uploads"
     MAX_UPLOAD_SIZE_MB: int = 50
+    REPORTS_DIR: str = "./reports"  # Directory for generated PDF/PPTX files
 
     # ── App ───────────────────────────────────────────────────────────────────
     APP_HOST: str = "0.0.0.0"

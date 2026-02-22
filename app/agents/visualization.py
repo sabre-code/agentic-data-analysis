@@ -26,7 +26,9 @@ a Plotly chart specification (JSON) that best visualizes the provided data analy
 Rules:
 - Return ONLY valid JSON — a complete Plotly figure object with "data" and "layout" keys
 - No markdown fences, no explanations, just raw JSON
-- Use the most appropriate chart type (bar, line, scatter, pie, histogram, box, heatmap, etc.)
+- IMPORTANT: Valid Plotly trace types are: bar, scatter, pie, histogram, box, heatmap, etc.
+  - For LINE CHARTS: use "type": "scatter" with "mode": "lines" or "lines+markers"
+  - There is NO "type": "line" in Plotly! Always use scatter for line charts.
 - Make the chart visually clear: proper titles, axis labels, colors
 - Use a professional color scheme (prefer: #636EFA, #EF553B, #00CC96, #AB63FA, #FFA15A)
 - The "layout" must include: title, xaxis.title, yaxis.title (where applicable)
@@ -34,7 +36,18 @@ Rules:
 - Use actual data values from the analysis results provided
 - Keep the JSON compact but complete
 
-Example structure:
+Example line chart (use scatter with mode='lines'):
+{
+  "data": [{"type": "scatter", "mode": "lines+markers", "x": [...], "y": [...], "name": "..."}],
+  "layout": {
+    "title": {"text": "..."},
+    "xaxis": {"title": {"text": "..."}},
+    "yaxis": {"title": {"text": "..."}},
+    "template": "plotly_dark"
+  }
+}
+
+Example bar chart:
 {
   "data": [{"type": "bar", "x": [...], "y": [...], "name": "..."}],
   "layout": {
@@ -65,22 +78,42 @@ class VisualizationAgent(BaseAgent):
         )
 
     async def run(self, handoff: AgentHandoff) -> AgentResult:
-        logger.info("📊 VISUALIZATION AGENT started — generating chart")
+        logger.info("📊 VISUALIZATION AGENT started — generating chart(s)")
         
         # Build context for chart generation
         context = self._build_chart_context(handoff)
+        
+        # Detect if multiple charts might be beneficial
+        should_generate_multiple = self._should_generate_multiple_charts(handoff)
 
-        messages = [
-            {
-                "role": "user",
-                "content": (
-                    f"Analysis results to visualize:\n\n{context}\n\n"
-                    f"User's original request: {handoff.user_query}\n\n"
-                    f"Chart instructions: {handoff.instructions or 'Create the most appropriate chart'}\n\n"
-                    "Return ONLY the Plotly JSON figure specification."
-                ),
-            }
-        ]
+        if should_generate_multiple:
+            # Request multiple chart specs
+            messages = [
+                {
+                    "role": "user",
+                    "content": (
+                        f"Analysis results to visualize:\n\n{context}\n\n"
+                        f"User's original request: {handoff.user_query}\n\n"
+                        f"Chart instructions: {handoff.instructions or 'Create appropriate charts'}\n\n"
+                        "The data suggests multiple visualizations would be beneficial. "
+                        "Return a JSON array of multiple Plotly figure specifications, each as a complete figure object. "
+                        "Format: [{chart1}, {chart2}, ...]. Each chart should have 'data' and 'layout' keys."
+                    ),
+                }
+            ]
+        else:
+            # Single chart request
+            messages = [
+                {
+                    "role": "user",
+                    "content": (
+                        f"Analysis results to visualize:\n\n{context}\n\n"
+                        f"User's original request: {handoff.user_query}\n\n"
+                        f"Chart instructions: {handoff.instructions or 'Create the most appropriate chart'}\n\n"
+                        "Return ONLY the Plotly JSON figure specification."
+                    ),
+                }
+            ]
 
         response = await self._gemini.generate(
             messages=messages,
@@ -89,23 +122,32 @@ class VisualizationAgent(BaseAgent):
         )
 
         raw = (response.text or "").strip()
-        chart_json = self._parse_plotly_json(raw)
-
-        if not chart_json:
+        
+        # Try to parse as multiple charts first, then fall back to single
+        charts = self._parse_multiple_charts(raw)
+        if not charts:
+            # Fall back to single chart parsing
+            chart_json = self._parse_plotly_json(raw)
+            if chart_json:
+                charts = [chart_json]
+        
+        if not charts:
             logger.error("❌ VISUALIZATION AGENT failed — invalid Plotly JSON")
             return AgentResult(
                 agent_name=self.name,
                 success=False,
-                error_message="Failed to generate a valid Plotly chart specification.",
+                error_message="Failed to generate valid Plotly chart specification(s).",
             )
 
-        logger.info("✅ VISUALIZATION AGENT completed — chart: %s", chart_json.get("layout", {}).get("title", {}).get("text", "untitled"))
-
+        logger.info("✅ VISUALIZATION AGENT completed — %d chart(s) generated", len(charts))
+        
+        # Return result with charts (single chart also set for backward compatibility)
         return AgentResult(
             agent_name=self.name,
             success=True,
-            chart_json=chart_json,
-            text_content="",  # Chart speaks for itself; Presentation Agent adds text context
+            chart_json=charts[0] if len(charts) == 1 else charts[-1],  # Most recent for compatibility
+            charts=charts,
+            text_content="",
         )
 
     def _build_chart_context(self, handoff: AgentHandoff) -> str:
@@ -164,3 +206,55 @@ class VisualizationAgent(BaseAgent):
         except json.JSONDecodeError as e:
             logger.error("Failed to parse Plotly JSON: %s\nRaw: %s", e, raw[:500])
             return None
+    
+    def _parse_multiple_charts(self, raw: str) -> list[dict[str, Any]]:
+        """
+        Parse multiple Plotly charts from JSON array.
+        Returns empty list if parsing fails.
+        """
+        # Strip markdown fences
+        if "```json" in raw:
+            start = raw.find("```json") + 7
+            end = raw.find("```", start)
+            raw = raw[start:end].strip()
+        elif "```" in raw:
+            start = raw.find("```") + 3
+            end = raw.find("```", start)
+            raw = raw[start:end].strip()
+        
+        # Try to find JSON array
+        start_bracket = raw.find("[")
+        end_bracket = raw.rfind("]")
+        
+        if start_bracket == -1 or end_bracket == -1:
+            return []
+        
+        raw = raw[start_bracket: end_bracket + 1]
+        
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, list):
+                # Validate each chart has minimum structure
+                valid_charts = [chart for chart in parsed if isinstance(chart, dict) and "data" in chart]
+                return valid_charts
+        except json.JSONDecodeError:
+            pass
+        
+        return []
+    
+    def _should_generate_multiple_charts(self, handoff: AgentHandoff) -> bool:
+        """
+        Detect if multiple charts would be beneficial based on code_result structure.
+        """
+        if not handoff.code_result:
+            return False
+        
+        # Check if code_result has multiple top-level metrics that could each be visualized
+        # For now, keep it simple - only generate multiple if explicitly requested
+        if handoff.instructions and any(
+            kw in handoff.instructions.lower() 
+            for kw in ["multiple", "several", "charts", "comparisons", "both"]
+        ):
+            return True
+        
+        return False

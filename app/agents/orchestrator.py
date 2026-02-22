@@ -33,9 +33,10 @@ from app.agents.base import BaseAgent
 from app.agents.code_interpreter import CodeInterpreterAgent
 from app.agents.visualization import VisualizationAgent
 from app.agents.presentation import PresentationAgent
-from app.models.handoff import AgentHandoff, AgentResult
+from app.models.handoff import AgentHandoff, AgentResult, GeneratedArtifact
 from app.models.file import UploadedFile
 from app.services.gemini_client import GeminiClient, ToolExecutor
+from app.services.redis_client import RedisClient
 
 logger = logging.getLogger(__name__)
 
@@ -122,10 +123,12 @@ AGENT_TOOL_DECLARATIONS = [
         "name": "run_presentation_agent",
         "description": (
             "Format and present analysis findings in a clear, structured, business-friendly response. "
-            "Use this to synthesize results from code execution and/or visualization into "
-            "a well-formatted markdown response with insights and recommendations. "
-            "Use for comprehensive analysis requests, reports, or when the user wants "
-            "a detailed explanation of findings."
+            "IMPORTANT: ONLY call this AFTER running code_interpreter to analyze data. "
+            "This agent needs actual analytical results (metrics, insights, findings) to create meaningful content. "
+            "For report/presentation requests: 1) Run code_interpreter to deeply analyze data and compute metrics, "
+            "2) Optionally run visualization_agent to create charts, 3) THEN call this agent to format results. "
+            "Automatically generates PDF/PowerPoint files when user requests reports or presentations. "
+            "DO NOT call this if you haven't analyzed the data yet - it will generate empty reports."
         ),
         "parameters": {
             "type": "object",
@@ -159,6 +162,7 @@ class OrchestratorAgent(ToolExecutor):
         code_interpreter: CodeInterpreterAgent,
         visualization: VisualizationAgent,
         presentation: PresentationAgent,
+        redis_client: RedisClient | None = None,
     ) -> None:
         self._gemini = gemini
         self._agents: dict[str, BaseAgent] = {
@@ -166,8 +170,10 @@ class OrchestratorAgent(ToolExecutor):
             "run_visualization_agent": visualization,
             "run_presentation_agent": presentation,
         }
+        self._redis = redis_client
         # Mutable handoff built up as agents execute
         self._current_handoff: AgentHandoff | None = None
+        self._current_session_id: str | None = None
 
     async def execute(self, tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
         """
@@ -183,8 +189,23 @@ class OrchestratorAgent(ToolExecutor):
         if self._current_handoff is None:
             return {"error": "No active handoff context"}
 
-        # Inject tool-specific instructions from Gemini's args
         handoff = self._current_handoff
+        
+        # ── Smart chart reuse check ────────────────────────────────────────
+        # If visualization is requested but we already have charts AND user
+        # wants to use existing charts (not create new/different ones), skip.
+        if tool_name == "run_visualization_agent":
+            existing_charts = handoff.get_all_charts()
+            if existing_charts and self._should_reuse_existing_charts(handoff.user_query, args):
+                logger.info("♻️ REUSING %d existing chart(s) instead of regenerating", len(existing_charts))
+                return {
+                    "status": "success",
+                    "charts_reused": True,
+                    "chart_count": len(existing_charts),
+                    "message": f"Using {len(existing_charts)} existing chart(s) from previous analysis. No need to regenerate.",
+                }
+
+        # Inject tool-specific instructions from Gemini's args
         if "task" in args:
             handoff.instructions = args["task"]
         elif "instructions" in args:
@@ -203,12 +224,71 @@ class OrchestratorAgent(ToolExecutor):
 
         # Return a summary for Gemini's FunctionResponse
         return self._result_to_function_response(result, tool_name)
+    
+    def _should_reuse_existing_charts(self, user_query: str, viz_args: dict[str, Any]) -> bool:
+        """
+        Determine if we should reuse existing charts or generate new ones.
+        
+        Returns True (reuse) when:
+        - User asks for report/presentation with "these charts" / "the charts" / existing charts
+        - User doesn't specify new/different chart requirements
+        
+        Returns False (regenerate) when:
+        - User asks for a specific new chart type not in existing charts
+        - User explicitly asks for "new", "different", "another" chart
+        - User specifies different data to visualize
+        """
+        query_lower = user_query.lower()
+        
+        # Phrases indicating user wants to USE existing charts (reuse)
+        reuse_indicators = [
+            "these charts", "the charts", "those charts", "existing charts",
+            "same charts", "charts above", "charts you created", "charts generated",
+            "with these", "include these", "use these", "add these",
+            "create a report", "create report", "generate report", "make a report",
+            "create a presentation", "create presentation", "generate presentation",
+            "pdf with", "pptx with", "powerpoint with",
+            "report with the", "presentation with the",
+        ]
+        
+        # Phrases indicating user wants NEW/DIFFERENT charts (don't reuse)
+        new_chart_indicators = [
+            "new chart", "different chart", "another chart", "create a chart",
+            "generate a chart", "make a chart", "show me a chart",
+            "visualize", "plot", "graph this", "chart this",
+            "bar chart", "line chart", "pie chart", "scatter", "histogram",
+            "compare", "trend of", "distribution of",
+        ]
+        
+        # Check for reuse indicators
+        wants_reuse = any(indicator in query_lower for indicator in reuse_indicators)
+        
+        # Check for new chart indicators
+        wants_new = any(indicator in query_lower for indicator in new_chart_indicators)
+        
+        # If user explicitly wants existing charts for a report, reuse
+        if wants_reuse and not wants_new:
+            return True
+        
+        # If user is asking for specific new visualization, don't reuse
+        if wants_new and not wants_reuse:
+            return False
+        
+        # Ambiguous case - if we have charts and viz_args doesn't specify something concrete new
+        # Default to reuse if user seems to want a report/presentation
+        report_keywords = ["report", "pdf", "presentation", "pptx", "powerpoint", "summary"]
+        if any(kw in query_lower for kw in report_keywords):
+            return True
+        
+        # Default: don't reuse (generate new charts)
+        return False
 
     async def run_stream(
         self,
         user_query: str,
         conversation_history: list[dict[str, Any]],
         active_file: UploadedFile | None = None,
+        session_id: str | None = None,
     ) -> AsyncGenerator[tuple[str, str], None]:
         """
         Main entry point. Streams (chunk_type, content) tuples to the caller.
@@ -220,10 +300,30 @@ class OrchestratorAgent(ToolExecutor):
           "chart_plotly"  → Plotly JSON string
           "error"         → error message
         """
+        self._current_session_id = session_id
+        
+        logger.info("🔧 run_stream started - session_id: %s, redis_client: %s", session_id, self._redis is not None)
+        
+        # ── Load session artifacts (charts from previous requests) ─────────
+        session_artifacts: list[GeneratedArtifact] = []
+        if session_id and self._redis:
+            try:
+                artifact_dicts = await self._redis.get_session_artifacts(session_id)
+                logger.info("📦 Loaded %d artifact(s) from Redis for session %s", len(artifact_dicts), session_id)
+                session_artifacts = [
+                    GeneratedArtifact.from_redis_dict(a) for a in artifact_dicts
+                ]
+                if session_artifacts:
+                    logger.info("Loaded %d session artifacts for session %s", len(session_artifacts), session_id)
+            except Exception as e:
+                logger.warning("Failed to load session artifacts: %s", e)
+        
         # ── Build initial handoff ──────────────────────────────────────────
         handoff = AgentHandoff(
             user_query=user_query,
             conversation_history=conversation_history,
+            session_id=session_id,
+            session_artifacts=session_artifacts,
         )
         if active_file:
             handoff.file_id = active_file.file_id
@@ -237,11 +337,16 @@ class OrchestratorAgent(ToolExecutor):
 
         self._current_handoff = handoff
 
-        # ── Build system prompt ────────────────────────────────────────────
-        system_prompt = self._build_orchestrator_system_prompt(active_file)
+        # ── Build system prompt with session artifact context ──────────────
+        system_prompt = self._build_orchestrator_system_prompt(active_file, session_artifacts)
 
         # ── Check if query needs agents or is pure conversation ────────────
-        needs_agents = active_file is not None or self._is_analytical_query(user_query)
+        # Also trigger agents if we have session artifacts (for report generation)
+        needs_agents = (
+            active_file is not None 
+            or self._is_analytical_query(user_query)
+            or len(session_artifacts) > 0  # Have prior analysis to work with
+        )
 
         if not needs_agents:
             # Pure conversational response — no agents needed
@@ -312,8 +417,24 @@ class OrchestratorAgent(ToolExecutor):
                     if tool_name == "run_code_interpreter" and self._current_handoff.generated_code:
                         yield ("code", self._current_handoff.generated_code)
                     
-                    if tool_name == "run_visualization_agent" and self._current_handoff.chart_json:
-                        yield ("chart_plotly", json.dumps(self._current_handoff.chart_json))
+                    if tool_name == "run_visualization_agent":
+                        # Emit all charts and save to session for future requests
+                        charts_to_save = []
+                        if self._current_handoff.charts:
+                            for chart in self._current_handoff.charts:
+                                yield ("chart_plotly", json.dumps(chart))
+                                charts_to_save.append(chart)
+                        elif self._current_handoff.chart_json:
+                            yield ("chart_plotly", json.dumps(self._current_handoff.chart_json))
+                            charts_to_save.append(self._current_handoff.chart_json)
+                        
+                        # Persist charts to session for follow-up requests
+                        if charts_to_save and self._current_session_id and self._redis:
+                            await self._save_charts_to_session(charts_to_save)
+                    
+                    if tool_name == "run_presentation_agent" and self._current_handoff.report_files:
+                        # Emit report files for download
+                        yield ("report_files", json.dumps(self._current_handoff.report_files))
                     
                     function_responses.append({
                         "name": tool_name,
@@ -339,8 +460,65 @@ class OrchestratorAgent(ToolExecutor):
             yield ("error", f"An error occurred during analysis: {str(e)}")
         finally:
             self._current_handoff = None
+            self._current_session_id = None
 
-    def _build_orchestrator_system_prompt(self, active_file: UploadedFile | None) -> str:
+    async def _save_charts_to_session(self, charts: list[dict[str, Any]]) -> None:
+        """Save generated charts to Redis session for future requests."""
+        if not self._redis or not self._current_session_id:
+            return
+        
+        import uuid
+        from datetime import datetime, timezone
+        
+        for chart in charts:
+            # Extract chart metadata
+            layout = chart.get("layout", {})
+            title = layout.get("title", {})
+            if isinstance(title, dict):
+                title_text = title.get("text", "Untitled Chart")
+            else:
+                title_text = title or "Untitled Chart"
+            
+            chart_type = "unknown"
+            if "data" in chart and chart["data"]:
+                chart_type = chart["data"][0].get("type", "unknown")
+            
+            # Build description from chart data
+            description_parts = [f"{chart_type} chart"]
+            if chart.get("data"):
+                data = chart["data"][0]
+                if "name" in data:
+                    description_parts.append(f"showing {data['name']}")
+                x_axis = layout.get("xaxis", {}).get("title", {})
+                y_axis = layout.get("yaxis", {}).get("title", {})
+                if isinstance(x_axis, dict):
+                    x_axis = x_axis.get("text", "")
+                if isinstance(y_axis, dict):
+                    y_axis = y_axis.get("text", "")
+                if x_axis and y_axis:
+                    description_parts.append(f"({x_axis} vs {y_axis})")
+            
+            artifact = {
+                "id": str(uuid.uuid4()),
+                "type": "chart",
+                "title": title_text,
+                "description": " ".join(description_parts),
+                "chart_json": chart,
+                "chart_type": chart_type,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+            
+            try:
+                await self._redis.save_session_artifact(self._current_session_id, artifact)
+                logger.info("Saved chart '%s' to session %s", title_text, self._current_session_id)
+            except Exception as e:
+                logger.warning("Failed to save chart to session: %s", e)
+
+    def _build_orchestrator_system_prompt(
+        self, 
+        active_file: UploadedFile | None,
+        session_artifacts: list[GeneratedArtifact] | None = None,
+    ) -> str:
         base = (
             "You are an intelligent data analysis assistant. "
             "You have access to specialist tools to analyze data, create visualizations, "
@@ -358,6 +536,27 @@ class OrchestratorAgent(ToolExecutor):
                 "No dataset is currently uploaded. Answer conversational questions directly. "
                 "If the user asks about data analysis, suggest they upload a CSV file. "
             )
+        
+        # Add context about existing charts from previous requests
+        if session_artifacts:
+            charts = [a for a in session_artifacts if a.type == "chart"]
+            if charts:
+                base += (
+                    f"\n\n=== EXISTING CHARTS (IMPORTANT) ===\n"
+                    f"The session has {len(charts)} chart(s) already generated:\n"
+                )
+                for i, chart in enumerate(charts, 1):
+                    base += f"  {i}. {chart.title}: {chart.description}\n"
+                base += (
+                    "\nCHART REUSE RULES:\n"
+                    "• If user wants a report/presentation WITH 'these charts', 'the charts', or 'existing charts' "
+                    "→ Go DIRECTLY to run_presentation_agent. Do NOT call run_visualization_agent.\n"
+                    "• If user asks for NEW/DIFFERENT charts (e.g., 'create a pie chart', 'show me a histogram') "
+                    "→ Call run_visualization_agent to generate the new charts.\n"
+                    "• If user asks for both existing AND new charts → Call visualization only for new charts.\n"
+                    "\nThe presentation agent automatically has access to all existing charts.\n"
+                )
+        
         base += (
             "Be precise and concise. "
             "Only invoke tools that are genuinely needed for the user's request."
@@ -393,6 +592,19 @@ class OrchestratorAgent(ToolExecutor):
     ) -> dict[str, Any]:
         """Convert AgentResult to a dict Gemini can read as FunctionResponse."""
         if not result.success:
+            # Check if it's a "needs more analysis" scenario
+            if result.needs_more_analysis and result.error_message:
+                return {
+                    "status": "needs_more_data",
+                    "message": result.text_content or "Insufficient data for comprehensive report",
+                    "suggested_action": result.error_message,  # Contains specific analysis request
+                    "instruction": (
+                        "The presentation agent needs more detailed analysis. "
+                        f"Please run code_interpreter with this task: {result.error_message}. "
+                        "Then call presentation_agent again to create the report."
+                    ),
+                }
+            
             return {
                 "status": "error",
                 "error": result.error_message,
@@ -413,5 +625,7 @@ class OrchestratorAgent(ToolExecutor):
             )
         if result.text_content:
             response["summary"] = result.text_content[:2000]
+        if result.needs_more_analysis:
+            response["needs_more_analysis"] = True
 
         return response

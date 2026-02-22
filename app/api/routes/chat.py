@@ -89,8 +89,8 @@ async def chat(
     # Load conversation history from Redis
     conversation_history = await redis.get_conversation_for_gemini(session_id, max_messages=20)
 
-    # Build orchestrator
-    orchestrator = get_orchestrator()
+    # Build orchestrator with Redis client for artifact persistence
+    orchestrator = get_orchestrator(redis_client=redis)
 
     # SSE generator with history persistence
     async def event_stream():
@@ -104,6 +104,7 @@ async def chat(
                 user_query=request.query,
                 conversation_history=conversation_history,
                 active_file=active_file,
+                session_id=session_id,
             ):
                 chunk = SSEChunk(type=chunk_type, content=content)  # type: ignore[arg-type]
                 yield chunk.to_sse()
@@ -119,28 +120,10 @@ async def chat(
             logger.error("SSE stream error: %s", e, exc_info=True)
             yield SSEChunk(type="error", content=f"Stream error: {str(e)}").to_sse()
         finally:
-            # Save assistant response to history
+            # Save assistant response to history (with chart metadata if available)
             if assistant_response.strip():
                 await redis.save_message(session_id, "assistant", assistant_response)
             
-    # SSE generator (no history, no persistence)
-    async def event_stream():
-        try:
-            async for chunk_type, content in orchestrator.run_stream(
-                user_query=request.query,
-                conversation_history=[],  # No history
-                active_file=active_file,
-            ):
-                chunk = SSEChunk(type=chunk_type, content=content)  # type: ignore[arg-type]
-                yield chunk.to_sse()
-
-        except asyncio.CancelledError:
-            logger.info("Client disconnected from SSE stream")
-            raise
-        except Exception as e:
-            logger.error("SSE stream error: %s", e, exc_info=True)
-            yield SSEChunk(type="error", content=f"Stream error: {str(e)}").to_sse()
-        finally:
             yield SSEChunk(type="done").to_sse()
 
     return StreamingResponse(
@@ -150,6 +133,7 @@ async def chat(
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",
+            "X-Session-ID": session_id,  # Return session_id so frontend can persist it
         },
     )
 

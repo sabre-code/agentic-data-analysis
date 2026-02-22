@@ -153,11 +153,6 @@ Upload any CSV file, then try:
      -d '{"query": "Analyze this data"}'
    ```
 
-4. **Restore history on page reload**:
-   ```bash
-   curl http://localhost:8000/api/sessions/{session_id}/messages
-   ```
-
 ---
 
 ## Environment Variables

@@ -37,7 +37,7 @@ DATA_DIR = os.environ.get("DATA_DIR", "/data/uploads")
 _ALLOWED_IMPORTS = frozenset({
     "pandas", "numpy", "json", "math", "statistics", "datetime", "collections",
     "itertools", "functools", "re", "string", "decimal", "fractions",
-    "random", "calendar", "operator", "io",
+    "random", "calendar", "operator", "io", "time",  # time needed by pandas internally
 })
 
 

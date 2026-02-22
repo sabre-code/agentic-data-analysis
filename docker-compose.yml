@@ -14,10 +14,12 @@ services:
       - EXECUTOR_URL=http://executor:8080
       - REDIS_URL=redis://redis:6379
       - DATA_DIR=/data/uploads
+      - REPORTS_DIR=/data/reports
       - DEBUG=${DEBUG:-false}
       - ALLOWED_ORIGINS=["*"]
     volumes:
       - dataset_store:/data/uploads   # Shared volume with executor
+      - reports_store:/data/reports   # Generated PDF/PPTX reports
     depends_on:
       redis:
         condition: service_healthy
@@ -85,6 +87,8 @@ networks:
 # ── Volumes ────────────────────────────────────────────────────────────────────
 volumes:
   dataset_store:
+    driver: local
+  reports_store:
     driver: local
   redis_data:
     driver: local

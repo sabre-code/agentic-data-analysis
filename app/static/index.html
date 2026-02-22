@@ -419,6 +419,57 @@
       min-height: 450px;
     }
 
+    /* ── Report download buttons ─────────────────────────────────────────── */
+    .report-downloads {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      margin: 8px 0;
+      max-width: 900px;
+      width: 100%;
+      margin-left: auto; margin-right: auto;
+    }
+    .report-downloads-header {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 10px;
+      font-weight: 500;
+    }
+    .download-buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .download-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 16px;
+      color: var(--text-primary);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .download-btn:hover {
+      background: var(--bg-hover);
+      border-color: var(--accent);
+      color: var(--accent);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .download-btn .icon {
+      font-size: 16px;
+    }
+    .download-btn.pdf .icon { color: var(--error); }
+    .download-btn.pptx .icon { color: var(--warning); }
+
+
     /* ── Error bubble ────────────────────────────────────────────────────── */
     .error-bubble {
       background: rgba(248, 81, 73, 0.1);
@@ -690,6 +741,7 @@
 // ── State ─────────────────────────────────────────────────────────────────────
 const STATE = {
   activeFile: null,  // Stores {file_id, original_filename, row_count, columns}
+  sessionId: null,   // Persisted session ID for conversation continuity
   isStreaming: false,
   currentAssistantBubble: null,
   currentAssistantText: '',
@@ -754,13 +806,26 @@ async function sendMessage() {
   }
 
   try {
-    const res = await fetch(`/api/chat?file_id=${encodeURIComponent(STATE.activeFile.file_id)}`, {
+    // Build URL with session_id if we have one (persist conversation context)
+    let url = `/api/chat?file_id=${encodeURIComponent(STATE.activeFile.file_id)}`;
+    if (STATE.sessionId) {
+      url += `&session_id=${encodeURIComponent(STATE.sessionId)}`;
+    }
+    
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ query }),
     });
+    
+    // Capture session_id from response headers (auto-created or confirmed)
+    const returnedSessionId = res.headers.get('X-Session-ID');
+    if (returnedSessionId) {
+      STATE.sessionId = returnedSessionId;
+      console.log('Session ID:', STATE.sessionId);
+    }
 
     if (!res.ok) {
       const err = await res.json();
@@ -836,6 +901,10 @@ function handleSSEChunk(jsonStr) {
 
     case 'chart_plotly':
       appendPlotlyChart(content);
+      break;
+
+    case 'report_files':
+      appendReportDownloads(content);
       break;
 
     case 'error':
@@ -1155,6 +1224,63 @@ function appendPlotlyChart(chartJsonStr) {
   scrollToBottom();
 }
 
+function appendReportDownloads(reportFilesJsonStr) {
+  let reportFiles;
+  try { 
+    reportFiles = JSON.parse(reportFilesJsonStr);
+  } catch (e) {
+    console.error('Failed to parse report files JSON:', e, reportFilesJsonStr);
+    return;
+  }
+
+  if (!Array.isArray(reportFiles) || reportFiles.length === 0) {
+    return;
+  }
+
+  const messages = document.getElementById('messages');
+
+  const container = document.createElement('div');
+  container.className = 'report-downloads';
+
+  const header = document.createElement('div');
+  header.className = 'report-downloads-header';
+  header.innerHTML = '📥 Download Reports';
+
+  const buttonsContainer = document.createElement('div');
+  buttonsContainer.className = 'download-buttons';
+
+  reportFiles.forEach(file => {
+    const btn = document.createElement('a');
+    btn.className = `download-btn ${file.format}`;
+    btn.href = `/api/reports/${file.filename}`;
+    btn.download = file.display_name || file.filename;
+    
+    const icon = document.createElement('span');
+    icon.className = 'icon';
+    if (file.format === 'pdf') {
+      icon.textContent = '📄';
+    } else if (file.format === 'pptx') {
+      icon.textContent = '📊';
+    } else {
+      icon.textContent = '📁';
+    }
+
+    const text = document.createElement('span');
+    text.textContent = file.display_name || file.filename;
+
+    btn.appendChild(icon);
+    btn.appendChild(text);
+    buttonsContainer.appendChild(btn);
+  });
+
+  container.appendChild(header);
+  container.appendChild(buttonsContainer);
+  messages.appendChild(container);
+
+  STATE.lastInsertedElement = container;
+  scrollToBottom();
+}
+
 function appendErrorToMessage(bubble, text) {
   const messages = document.getElementById('messages');
   const errDiv = document.createElement('div');
@@ -1233,6 +1359,7 @@ async function uploadFile(file) {
 
     const data = await res.json();
     STATE.activeFile = data;
+    STATE.sessionId = null;  // Reset session for new file (fresh conversation context)
     updateFilePill(data);
     hideEmptyState();
 

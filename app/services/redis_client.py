@@ -190,3 +190,106 @@ class RedisClient:
         session_key = f"session:{session_id}:meta"
         file_id = await client.hget(session_key, "active_file_id")
         return file_id if file_id else None
+    
+    # ── Generated Artifacts Tracking ──────────────────────────────────────
+    
+    async def save_session_artifact(
+        self,
+        session_id: str,
+        artifact: dict[str, Any],
+    ) -> None:
+        """
+        Save a generated artifact (chart, report, etc.) to session.
+        
+        Args:
+            session_id: Session identifier
+            artifact: Dict with keys like:
+                - type: "chart" | "report"
+                - title: Human-readable title
+                - description: Brief description of what it shows
+                - chart_json: Plotly JSON (for charts)
+                - file_path: Path to file (for reports)
+                - created_at: ISO timestamp
+        """
+        client = await self._get_client()
+        artifacts_key = f"session:{session_id}:artifacts"
+        
+        # Ensure artifact has timestamp
+        if "created_at" not in artifact:
+            artifact["created_at"] = datetime.now(timezone.utc).isoformat()
+        
+        # Assign unique ID if not present
+        if "id" not in artifact:
+            artifact["id"] = str(uuid.uuid4())
+        
+        await client.rpush(artifacts_key, json.dumps(artifact))
+        await client.expire(artifacts_key, SESSION_TTL)
+        
+        logger.debug("Saved artifact %s to session %s", artifact.get("id"), session_id)
+    
+    async def save_session_artifacts(
+        self,
+        session_id: str,
+        artifacts: list[dict[str, Any]],
+    ) -> None:
+        """Save multiple artifacts at once."""
+        for artifact in artifacts:
+            await self.save_session_artifact(session_id, artifact)
+    
+    async def get_session_artifacts(
+        self,
+        session_id: str,
+        artifact_type: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Get all artifacts for a session, optionally filtered by type.
+        
+        Args:
+            session_id: Session identifier
+            artifact_type: Filter by type ("chart", "report", etc.) or None for all
+        
+        Returns:
+            List of artifact dicts
+        """
+        client = await self._get_client()
+        artifacts_key = f"session:{session_id}:artifacts"
+        
+        raw_artifacts = await client.lrange(artifacts_key, 0, -1)
+        artifacts = [json.loads(a) for a in raw_artifacts]
+        
+        if artifact_type:
+            artifacts = [a for a in artifacts if a.get("type") == artifact_type]
+        
+        return artifacts
+    
+    async def get_session_charts(self, session_id: str) -> list[dict[str, Any]]:
+        """Convenience method to get all charts for a session."""
+        return await self.get_session_artifacts(session_id, artifact_type="chart")
+    
+    async def clear_session_artifacts(
+        self,
+        session_id: str,
+        artifact_type: str | None = None,
+    ) -> None:
+        """
+        Clear artifacts from session.
+        
+        Args:
+            session_id: Session identifier
+            artifact_type: If specified, only clear artifacts of this type
+        """
+        client = await self._get_client()
+        artifacts_key = f"session:{session_id}:artifacts"
+        
+        if artifact_type is None:
+            # Clear all
+            await client.delete(artifacts_key)
+        else:
+            # Filter and keep only non-matching types
+            current = await self.get_session_artifacts(session_id)
+            remaining = [a for a in current if a.get("type") != artifact_type]
+            await client.delete(artifacts_key)
+            for artifact in remaining:
+                await client.rpush(artifacts_key, json.dumps(artifact))
+            if remaining:
+                await client.expire(artifacts_key, SESSION_TTL)
