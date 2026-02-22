@@ -596,6 +596,4 @@ agentic-data-analysis/
 
 ---
 
-## 📄 License
 
-MIT
