@@ -475,15 +475,63 @@ open http://localhost:8000
 
 ## 💬 Example Queries
 
+### Demo: Multi-Turn Conversation with Artifact Handoff
+
+This example demonstrates the key feature of **cross-request artifact persistence**. Charts generated in the first request are automatically reused in the follow-up request for report generation.
+
+**Sample Data**: Upload `tests/sample_data/sales_transactions.csv`
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  📤 TURN 1                                                                      │
+│                                                                                 │
+│  User: "Analyse the data and create some insightful charts from this data"     │
+│                                                                                 │
+│  ┌─────────────────────────────────────────────────────────────────────────┐   │
+│  │ Agent Flow:                                                              │   │
+│  │                                                                          │   │
+│  │   🔧 Code Interpreter    →    📊 Visualization                          │   │
+│  │   • Computes metrics          • Creates "Monthly Revenue Trend" chart   │   │
+│  │   • Analyzes trends           • Creates "Revenue by Category" chart     │   │
+│  │   • Aggregates data           • Charts saved to session ✓               │   │
+│  └─────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                 │
+│  Response: Interactive Plotly charts displayed + analysis summary              │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      │  Session persists 2 charts in Redis
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  📤 TURN 2 (Follow-up)                                                          │
+│                                                                                 │
+│  User: "Can you create a PDF and PPT report from these charts?                 │
+│         Do include some descriptive executive summary in each"                  │
+│                                                                                 │
+│  ┌─────────────────────────────────────────────────────────────────────────┐   │
+│  │ Agent Flow:                                                              │   │
+│  │                                                                          │   │
+│  │   📦 Load Session Artifacts    →    📝 Presentation Agent               │   │
+│  │   • Finds 2 existing charts         • Generates AI executive summary    │   │
+│  │   • Skips regeneration ♻️           • Creates PDF with charts + summary │   │
+│  │   • Passes to presentation          • Creates PPTX with charts + summary│   │
+│  └─────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                 │
+│  Response: PDF and PowerPoint download links + brief summary                   │
+│                                                                                 │
+│  ✨ KEY: Charts from Turn 1 were REUSED, not regenerated!                      │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Other Query Examples
+
 | Query | Agent Flow |
 |-------|------------|
 | `"Summarize this dataset"` | Code Interpreter → Presentation |
 | `"What are the top 5 products by revenue?"` | Code Interpreter |
 | `"Show a bar chart of sales by category"` | Code Interpreter → Visualization |
-| `"Analyze trends and create charts"` | Code Interpreter → Visualization |
-| `"Create a PDF report from these charts"` | Presentation (reuses existing charts) |
-| `"Generate a PowerPoint with executive summary"` | Presentation (with AI summary) |
-| `"Create a new pie chart of market share"` | Visualization (generates new) |
+| `"Create a new pie chart of market share"` | Visualization (generates new chart) |
 
 ---
 
