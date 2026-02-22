@@ -1,0 +1,21 @@
+campaign_id,campaign_name,channel,start_date,end_date,budget_usd,impressions,clicks,conversions,revenue_generated,avg_cpc,avg_cpm,ctr_pct,conversion_rate_pct,roas,target_audience,creative_format,ab_variant
+CAM-001,Spring Launch 2025,Google Search,2025-03-01,2025-03-31,15000,420000,8820,441,52920,1.70,35.71,2.10,5.00,3.53,25-44 Female,Text Ad,A
+CAM-002,Spring Launch 2025,Google Search,2025-03-01,2025-03-31,15000,405000,7695,346,43050,1.95,37.04,1.90,4.50,2.87,25-44 Female,Text Ad,B
+CAM-003,Brand Awareness Q1,Facebook,2025-01-15,2025-02-15,22000,1850000,18500,370,22200,1.19,11.89,1.00,2.00,1.01,18-35 All,Video 15s,A
+CAM-004,Brand Awareness Q1,Instagram,2025-01-15,2025-02-15,18000,2100000,25200,504,30240,0.71,8.57,1.20,2.00,1.68,18-30 Female,Carousel,A
+CAM-005,Retargeting Feb,Google Display,2025-02-01,2025-02-28,8500,980000,6860,343,61740,1.24,8.67,0.70,5.00,7.26,Site Visitors,Banner,A
+CAM-006,Product Launch NVDA,YouTube,2025-02-10,2025-03-10,35000,3200000,64000,1920,115200,0.55,10.94,2.00,3.00,3.29,Tech Enthusiasts,Video 30s,A
+CAM-007,Email Reactivation,Email,2025-01-08,2025-01-15,1200,85000,5950,595,71400,0.20,14.12,7.00,10.00,59.50,Lapsed Customers,HTML Email,A
+CAM-008,LinkedIn B2B,LinkedIn,2025-02-03,2025-02-28,28000,620000,4960,149,89400,5.65,45.16,0.80,3.00,3.19,Decision Makers,Sponsored Post,A
+CAM-009,TikTok Gen-Z,TikTok,2025-01-20,2025-02-20,12000,4500000,67500,675,20250,0.18,2.67,1.50,1.00,1.69,18-24 All,Short Video,A
+CAM-010,Summer Preview,Facebook,2025-03-15,2025-04-15,19000,1620000,19440,583,69960,0.98,11.73,1.20,3.00,3.68,25-45 All,Image,A
+CAM-011,Summer Preview,Facebook,2025-03-15,2025-04-15,19000,1710000,22230,667,80040,0.85,11.11,1.30,3.00,4.21,25-45 All,Video 15s,B
+CAM-012,Affiliate Spring,Affiliate,2025-03-01,2025-04-30,5000,310000,9300,744,89280,0.54,16.13,3.00,8.00,17.86,Mixed,Text Link,A
+CAM-013,SEO Content Push,Organic Search,2025-01-01,2025-03-31,8000,530000,21200,1060,127200,0.38,15.09,4.00,5.00,15.90,Research Intent,Blog,A
+CAM-014,Podcast Ads,Podcast,2025-02-01,2025-02-28,9500,180000,3600,108,19440,2.64,52.78,2.00,3.00,2.05,30-50 Male,Audio,A
+CAM-015,App Install Drive,Google UAC,2025-01-15,2025-02-15,14000,2800000,56000,2800,56000,0.25,5.00,2.00,5.00,4.00,Mobile Users,App Ad,A
+CAM-016,Retargeting April,Facebook,2025-04-01,2025-04-30,9800,760000,9120,365,52560,1.07,12.89,1.20,4.00,5.36,Cart Abandoners,Dynamic,A
+CAM-017,Influencer Micro,Instagram,2025-03-01,2025-03-31,16000,890000,17800,534,74760,0.90,17.98,2.00,3.00,4.67,Lifestyle 20-35,UGC,A
+CAM-018,CTV Awareness,Connected TV,2025-02-15,2025-03-15,45000,1100000,5500,110,13200,8.18,40.91,0.50,2.00,0.29,Cord Cutters 35+,Video 30s,A
+CAM-019,Push Notification,Mobile Push,2025-01-10,2025-01-12,500,120000,7200,720,86400,0.07,4.17,6.00,10.00,172.80,App Users,Push,A
+CAM-020,Bing Search,Microsoft Ads,2025-02-01,2025-03-31,6500,390000,5070,203,28420,1.28,16.67,1.30,4.00,4.37,35-55 Professional,Text Ad,A

@@ -1,0 +1,31 @@
+employee_id,name,department,job_title,hire_date,salary,bonus_pct,years_experience,age,gender,location,is_remote,performance_score,satisfaction_score,attrition_risk
+EMP-001,James Okafor,Engineering,Senior Software Engineer,2019-03-15,132000,12,8,34,M,New York,True,4.5,4.2,Low
+EMP-002,Priya Nair,Marketing,Marketing Manager,2020-07-22,98000,10,6,31,F,Austin,False,4.1,3.8,Low
+EMP-003,Chen Wei,Engineering,Staff Engineer,2017-01-10,168000,15,11,38,M,San Francisco,True,4.8,4.6,Low
+EMP-004,Sofia Rossi,Product,Product Manager,2021-04-05,118000,12,5,29,F,New York,False,3.9,3.5,Medium
+EMP-005,Marcus Brown,Sales,Account Executive,2022-02-14,75000,20,3,27,M,Chicago,False,4.2,4.0,Low
+EMP-006,Aisha Patel,HR,HR Business Partner,2018-09-30,89000,8,7,35,F,Austin,False,4.0,3.7,Low
+EMP-007,Liam Torres,Engineering,Junior Software Engineer,2023-06-01,88000,8,1,24,M,Remote,True,3.7,3.9,Medium
+EMP-008,Fatima Al-Hassan,Finance,Financial Analyst,2020-11-18,95000,10,5,30,F,New York,False,4.3,4.1,Low
+EMP-009,Ryan Mitchell,Engineering,Senior Software Engineer,2019-08-26,128000,12,7,33,M,San Francisco,True,4.4,3.6,Medium
+EMP-010,Yuki Tanaka,Design,UX Designer,2021-01-12,105000,10,6,28,F,Austin,True,4.6,4.5,Low
+EMP-011,Daniel Osei,Sales,Sales Manager,2016-05-20,115000,25,10,40,M,Chicago,False,4.7,4.3,Low
+EMP-012,Emily Zhang,Engineering,Principal Engineer,2015-03-08,195000,15,13,41,F,San Francisco,True,4.9,4.4,Low
+EMP-013,Carlos Mendez,Marketing,Content Strategist,2022-08-15,72000,8,3,26,M,Remote,True,3.8,3.4,High
+EMP-014,Amara Williams,Product,Senior PM,2018-12-03,142000,12,8,36,F,New York,False,4.4,4.0,Low
+EMP-015,Noah Johansson,Finance,Senior Analyst,2019-06-17,108000,10,6,32,M,Chicago,False,4.1,3.8,Low
+EMP-016,Hana Kim,Engineering,Software Engineer,2021-09-20,102000,10,4,27,F,Austin,True,4.0,4.2,Low
+EMP-017,Alex Thompson,Sales,SDR,2023-01-09,58000,15,1,23,M,Chicago,False,3.5,2.9,High
+EMP-018,Nadia Ivanova,HR,Recruiter,2022-04-25,76000,8,3,28,F,New York,False,3.9,3.6,Medium
+EMP-019,Kwame Asante,Engineering,Senior Software Engineer,2020-02-11,130000,12,6,31,M,San Francisco,True,4.3,4.0,Low
+EMP-020,Isabella Martin,Design,Product Designer,2020-10-07,99000,10,5,29,F,Austin,True,4.5,4.4,Low
+EMP-021,Lucas Ferreira,Marketing,Growth Manager,2019-04-30,112000,12,7,35,M,Remote,True,4.2,3.5,Medium
+EMP-022,Mei Lin,Finance,Finance Director,2014-07-14,165000,15,14,43,F,New York,False,4.7,4.2,Low
+EMP-023,Tobias Müller,Engineering,DevOps Engineer,2021-07-06,115000,10,5,30,M,Remote,True,4.1,4.3,Low
+EMP-024,Chioma Eze,Product,Associate PM,2023-03-27,84000,8,1,25,F,Austin,False,3.8,3.7,Medium
+EMP-025,Victor Santos,Sales,Enterprise AE,2017-11-14,145000,22,9,38,M,Chicago,False,4.6,4.1,Low
+EMP-026,Sara Lindqvist,Engineering,Senior QA Engineer,2018-06-19,118000,10,8,34,F,San Francisco,True,4.2,3.9,Low
+EMP-027,Omar Abdullah,Legal,Legal Counsel,2020-09-01,130000,10,6,33,M,New York,False,4.0,3.8,Low
+EMP-028,Zoe Nguyen,Engineering,Software Engineer,2022-11-28,98000,10,2,26,F,Remote,True,3.9,4.1,Medium
+EMP-029,Ethan Park,Marketing,Brand Manager,2018-02-22,107000,10,7,32,M,Austin,False,4.3,3.6,Low
+EMP-030,Aditi Sharma,Engineering,Staff Engineer,2016-10-03,182000,15,12,40,F,San Francisco,True,4.8,4.5,Low

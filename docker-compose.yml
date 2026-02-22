@@ -1,0 +1,90 @@
+version: "3.9"
+
+services:
+  # ── FastAPI Application ────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
+      - EXECUTOR_URL=http://executor:8080
+      - REDIS_URL=redis://redis:6379
+      - DATA_DIR=/data/uploads
+      - DEBUG=${DEBUG:-false}
+      - ALLOWED_ORIGINS=["*"]
+    volumes:
+      - dataset_store:/data/uploads   # Shared volume with executor
+    depends_on:
+      redis:
+        condition: service_healthy
+      executor:
+        condition: service_started
+    networks:
+      - internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # ── Redis ──────────────────────────────────────────────────────────────────
+  # Session storage and conversation history
+  redis:
+    image: redis:7-alpine
+    networks:
+      - internal
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # ── Code Executor Sidecar ──────────────────────────────────────────────────
+  # SECURITY: Never exposed to host. Only reachable from api container.
+  # Resource-limited to prevent abuse.
+  executor:
+    build:
+      context: ./executor
+      dockerfile: Dockerfile
+    environment:
+      - DATA_DIR=/data/uploads
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - dataset_store:/data/uploads:ro  # READ-ONLY — executor never writes
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          memory: 256M    # Hard cap — kills OOM attacks
+          cpus: "0.5"     # Prevents CPU exhaustion
+    security_opt:
+      - no-new-privileges:true  # No privilege escalation
+    read_only: true             # Read-only root filesystem
+    tmpfs:
+      - /tmp:size=64m           # Writable scratch space only in /tmp
+    restart: unless-stopped
+
+# ── Networks ───────────────────────────────────────────────────────────────────
+networks:
+  internal:
+    driver: bridge
+    # Note: Not marking as `internal: true` so api can reach Gemini API
+    # executor has no direct outbound access (no ports mapping + no DNS for external hosts)
+
+# ── Volumes ────────────────────────────────────────────────────────────────────
+volumes:
+  dataset_store:
+    driver: local
+  redis_data:
+    driver: local
