@@ -692,10 +692,10 @@
       <div class="empty-state" id="emptyState">
         <div class="icon">📈</div>
         <h2>Multi-Agent Data Analysis</h2>
-        <p>Upload a CSV file and ask questions in natural language. Specialized AI agents will analyze your data, generate visualizations, and present insights.</p>
+        <p>Ask questions or upload a CSV file for data analysis. Specialized AI agents will analyze your data, generate visualizations, and present insights.</p>
         <div class="suggestion-chips" id="suggestionChips">
+          <div class="chip" onclick="useSuggestion('What can you help me with?')">💬 What can you do?</div>
           <div class="chip" onclick="useSuggestion('Give me a summary of the dataset')">📋 Dataset summary</div>
-          <div class="chip" onclick="useSuggestion('What are the top 5 rows by value?')">🔝 Top values</div>
           <div class="chip" onclick="useSuggestion('Show me a chart of the data distribution')">📊 Distribution chart</div>
           <div class="chip" onclick="useSuggestion('Analyze trends and create a presentation')">📑 Full analysis</div>
         </div>
@@ -797,19 +797,23 @@ async function sendMessage() {
   STATE.currentMessageGroup = null;
   STATE.lastInsertedElement = null;
 
-  // Require file upload before querying
-  if (!STATE.activeFile) {
-    showToast('Please upload a CSV file first', 'warning');
-    STATE.isStreaming = false;
-    document.getElementById('sendBtn').disabled = false;
-    return;
-  }
-
   try {
-    // Build URL with session_id if we have one (persist conversation context)
-    let url = `/api/chat?file_id=${encodeURIComponent(STATE.activeFile.file_id)}`;
+    // Build URL with optional file_id and session_id
+    let url = `/api/chat`;
+    const params = [];
+    
+    // Only include file_id if a file is uploaded
+    if (STATE.activeFile) {
+      params.push(`file_id=${encodeURIComponent(STATE.activeFile.file_id)}`);
+    }
+    
+    // Include session_id if we have one (persist conversation context)
     if (STATE.sessionId) {
-      url += `&session_id=${encodeURIComponent(STATE.sessionId)}`;
+      params.push(`session_id=${encodeURIComponent(STATE.sessionId)}`);
+    }
+    
+    if (params.length > 0) {
+      url += '?' + params.join('&');
     }
     
     const res = await fetch(url, {
